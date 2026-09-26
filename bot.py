@@ -139,15 +139,15 @@ async def apply_to_member(guild: discord.Guild, discord_id: int, profile: dict) 
         if role:
             await member.add_roles(role, reason=f"SkyNetwork CID {cid}")
     except discord.Forbidden:
-        notes.append("не удалось выдать роль: роль бота должна быть выше неё")
+        notes.append("could not give the role: the bot's role must be above it")
     if member.id == guild.owner_id:
-        notes.append("вы владелец сервера — Discord не даёт боту менять ваш ник")
+        notes.append("you own the server: Discord does not let bots change the owner's nickname")
     else:
         try:
             await member.edit(nick=nickname, reason=f"SkyNetwork CID {cid}")
         except discord.Forbidden:
-            notes.append("не удалось сменить ник: роль бота должна стоять выше вашей роли")
-    text = f"✅ Верификация пройдена: **{nickname}**"
+            notes.append("could not change the nickname: the bot's role must be above yours")
+    text = f"✅ Verified: **{nickname}**"
     return text + ("\n⚠️ " + "; ".join(notes) if notes else "")
 
 
@@ -157,7 +157,7 @@ class VerifyButtonView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="Пройти верификацию", style=discord.ButtonStyle.success, emoji="✈️",
+    @discord.ui.button(label="Verify", style=discord.ButtonStyle.success, emoji="✈️",
                        custom_id="verify_cid_persistent")
     async def click_verify(self, interaction: discord.Interaction, button: discord.ui.Button):
         now = time.time()
@@ -166,19 +166,19 @@ class VerifyButtonView(discord.ui.View):
         state, verifier = secrets.token_urlsafe(24), secrets.token_urlsafe(48)
         pending[state] = (interaction.user.id, interaction.guild_id, verifier, now + LINK_LIFETIME, interaction)
         view = discord.ui.View()
-        view.add_item(discord.ui.Button(label="Войти через SkyNetwork", url=authorize_url(state, verifier), emoji="🔐"))
+        view.add_item(discord.ui.Button(label="Sign in with SkyNetwork", url=authorize_url(state, verifier), emoji="🔐"))
         await interaction.response.send_message(
-            "Нажмите кнопку и войдите на сайте SkyNetwork своим CID и паролем. Ссылка личная и действует 10 минут.",
+            "Press the button and sign in on the SkyNetwork website with your CID and password. The link is personal and works for 10 minutes.",
             view=view, ephemeral=True)
 
 
-@bot.tree.command(name="setup_verify", description="Отправить сообщение с кнопкой верификации в этот канал")
+@bot.tree.command(name="setup_verify", description="Post the verification button in this channel")
 @app_commands.guild_only()
 @app_commands.default_permissions(administrator=True)
 async def setup_verify(interaction: discord.Interaction):
     embed = discord.Embed(
-        title="🌐 Верификация SkyNetwork",
-        description="Нажмите на кнопку и войдите на сайте SkyNetwork: бот поставит ник «Имя Фамилия - CID».",
+        title="🌐 SkyNetwork verification",
+        description="Press the button and sign in on the SkyNetwork website: the bot sets your nickname to \"First Last - CID\".",
         color=discord.Color.from_rgb(46, 134, 222),
     )
     try:
@@ -188,7 +188,7 @@ async def setup_verify(interaction: discord.Interaction):
         # the answer to the command is posted instead, the button works the same.
         await interaction.response.send_message(embed=embed, view=VerifyButtonView())
         return
-    await interaction.response.send_message("Кнопка размещена!", ephemeral=True)
+    await interaction.response.send_message("The button is posted.", ephemeral=True)
 
 
 # ---- web page the website sends the member back to -----------------------------------------------------
@@ -206,39 +206,39 @@ async def callback(request: web.Request) -> web.Response:
     state = request.query.get("state", "")
     entry = pending.pop(state, None)
     if not entry or entry[3] < time.time():
-        return page("Ссылка устарела", "Нажмите кнопку верификации в Discord ещё раз.", False)
+        return page("The link has expired", "Press the verification button in Discord again.", False)
     discord_id, guild_id, verifier, _, interaction = entry
     if "error" in request.query:
-        return page("Вход отменён", "Верификация не пройдена. Можно попробовать ещё раз из Discord.", False)
+        return page("Sign-in cancelled", "You are not verified. You can try again from Discord.", False)
     # Each step says what went wrong, on the page and in the journal, so the cause is clear without digging.
     try:
         profile = await fetch_profile(request.query.get("code", ""), verifier)
     except Exception as e:
         print(f"Verification failed at the SkyNetwork website: {e!r}")
-        return page("Не получилось", "Сайт SkyNetwork не подтвердил вход: " + html.escape(str(e) or type(e).__name__) +
-                    ".<br><br>Попробуйте ещё раз из Discord. Если повторяется, передайте этот текст администрации.", False)
+        return page("Verification failed", "The SkyNetwork website did not confirm the sign-in: " + html.escape(str(e) or type(e).__name__) +
+                    ".<br><br>Try again from Discord. If it happens again, send this text to the staff.", False)
     try:
         guild = bot.get_guild(guild_id) or await bot.fetch_guild(guild_id)
         message = await apply_to_member(guild, discord_id, profile)
     except discord.NotFound as e:
         print(f"Verification failed in Discord (not found): {e!r}")
         if e.code == 10004:  # Unknown Guild: the application is on the server, but not its bot user
-            return page("Не получилось", "Бота нет на сервере Discord как участника: приложение добавлено без scope «bot». "
-                        "Администратору: пригласите бота заново ссылкой со scope=bot%20applications.commands.", False)
-        return page("Не получилось", "Бот не нашёл вас на сервере Discord. Вы ещё на сервере? Попробуйте ещё раз.", False)
+            return page("Verification failed", "The bot is not a member of the Discord server: the app was added without the "
+                        "\"bot\" scope. Staff: invite the bot again with scope=bot%20applications.commands.", False)
+        return page("Verification failed", "The bot could not find you on the Discord server. Are you still on it? Try again.", False)
     except discord.Forbidden as e:
         print(f"Verification failed in Discord (no access): {e!r}")
-        return page("Не получилось", "У бота нет доступа к серверу Discord: пригласите его заново со scope «bot» и правами "
-                    "«Управлять никнеймами» и «Управлять ролями».", False)
+        return page("Verification failed", "The bot has no access to the Discord server: invite it again with the \"bot\" scope and the "
+                    "Manage Nicknames and Manage Roles permissions.", False)
     except Exception as e:
         print(f"Verification failed in Discord: {e!r}")
-        return page("Не получилось", "Ошибка в Discord: " + html.escape(str(e) or type(e).__name__) + ". Передайте этот текст администрации.", False)
+        return page("Verification failed", "Discord error: " + html.escape(str(e) or type(e).__name__) + ". Send this text to the staff.", False)
     try:
         await interaction.edit_original_response(content=message, view=None)
     except discord.HTTPException:
         pass
     plain = html.escape(message.replace("**", "").replace("✅ ", ""))
-    return page("Готово", f"{plain}<br><br>Можно вернуться в Discord.", True)
+    return page("Done", f"{plain}<br><br>You can go back to Discord.", True)
 
 
 async def start_web():
