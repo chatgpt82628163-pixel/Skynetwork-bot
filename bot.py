@@ -99,14 +99,21 @@ async def fetch_profile(code: str, verifier: str) -> dict:
         form = {"grant_type": "authorization_code", "code": code, "redirect_uri": REDIRECT_URI,
                 "client_id": CLIENT_ID, "client_secret": CLIENT_SECRET, "code_verifier": verifier}
         async with s.post(f"{SKYNET_URL}/oauth/token", data=form) as r:
-            token = await r.json(content_type=None)
-            if r.status != 200:
-                raise RuntimeError(token.get("error_description") or token.get("error") or f"status {r.status}")
+            token = await answer(r, "/oauth/token")
         async with s.get(f"{SKYNET_URL}/oauth/userinfo", headers={"Authorization": f"Bearer {token['access_token']}"}) as r:
-            profile = await r.json(content_type=None)
-            if r.status != 200:
-                raise RuntimeError(profile.get("error_description") or f"status {r.status}")
-    return profile
+            return await answer(r, "/oauth/userinfo")
+
+
+async def answer(r: aiohttp.ClientResponse, what: str) -> dict:
+    """The JSON of a website answer; otherwise an error that says what the website said."""
+    try:
+        data = await r.json(content_type=None)
+    except ValueError:
+        data = None
+    if r.status == 200 and isinstance(data, dict):
+        return data
+    reason = (data or {}).get("error_description") or (data or {}).get("error") if isinstance(data, dict) else None
+    raise RuntimeError(f"{what}: {reason or 'HTTP ' + str(r.status)}")
 
 
 async def apply_to_member(guild: discord.Guild, discord_id: int, profile: dict) -> str:
@@ -203,13 +210,26 @@ async def callback(request: web.Request) -> web.Response:
     discord_id, guild_id, verifier, _, interaction = entry
     if "error" in request.query:
         return page("Вход отменён", "Верификация не пройдена. Можно попробовать ещё раз из Discord.", False)
+    # Each step says what went wrong, on the page and in the journal, so the cause is clear without digging.
     try:
         profile = await fetch_profile(request.query.get("code", ""), verifier)
+    except Exception as e:
+        print(f"Verification failed at the SkyNetwork website: {e!r}")
+        return page("Не получилось", "Сайт SkyNetwork не подтвердил вход: " + html.escape(str(e) or type(e).__name__) +
+                    ".<br><br>Попробуйте ещё раз из Discord. Если повторяется, передайте этот текст администрации.", False)
+    try:
         guild = bot.get_guild(guild_id) or await bot.fetch_guild(guild_id)
         message = await apply_to_member(guild, discord_id, profile)
+    except discord.NotFound as e:
+        print(f"Verification failed in Discord (not found): {e!r}")
+        return page("Не получилось", "Бот не нашёл вас на сервере Discord. Вы ещё на сервере? Попробуйте ещё раз.", False)
+    except discord.Forbidden as e:
+        print(f"Verification failed in Discord (no access): {e!r}")
+        return page("Не получилось", "У бота нет доступа к серверу Discord: пригласите его заново со scope «bot» и правами "
+                    "«Управлять никнеймами» и «Управлять ролями».", False)
     except Exception as e:
-        print(f"Verification failed: {e}")
-        return page("Не получилось", "Не удалось проверить вход. Попробуйте ещё раз или напишите администрации.", False)
+        print(f"Verification failed in Discord: {e!r}")
+        return page("Не получилось", "Ошибка в Discord: " + html.escape(str(e) or type(e).__name__) + ". Передайте этот текст администрации.", False)
     try:
         await interaction.edit_original_response(content=message, view=None)
     except discord.HTTPException:
