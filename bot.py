@@ -222,6 +222,9 @@ async def callback(request: web.Request) -> web.Response:
         message = await apply_to_member(guild, discord_id, profile)
     except discord.NotFound as e:
         print(f"Verification failed in Discord (not found): {e!r}")
+        if e.code == 10004:  # Unknown Guild: the application is on the server, but not its bot user
+            return page("Не получилось", "Бота нет на сервере Discord как участника: приложение добавлено без scope «bot». "
+                        "Администратору: пригласите бота заново ссылкой со scope=bot%20applications.commands.", False)
         return page("Не получилось", "Бот не нашёл вас на сервере Discord. Вы ещё на сервере? Попробуйте ещё раз.", False)
     except discord.Forbidden as e:
         print(f"Verification failed in Discord (no access): {e!r}")
