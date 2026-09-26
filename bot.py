@@ -22,6 +22,7 @@ import html
 import os
 import secrets
 import sqlite3
+import sys
 import time
 
 import aiohttp
@@ -39,10 +40,13 @@ WEB_PORT = int(os.environ.get("BOT_WEB_PORT", "8090"))
 VERIFIED_ROLE_ID = int(os.environ.get("VERIFIED_ROLE_ID") or 0)
 DB_PATH = os.environ.get("BOT_DB") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "links.db")
 
+sys.stdout.reconfigure(line_buffering=True)  # prints reach the journal at once
+
 REDIRECT_URI = f"{PUBLIC_URL}/callback"
 LINK_LIFETIME = 10 * 60  # seconds a sign-in link stays valid
 
-bot = commands.Bot(command_prefix="!", intents=discord.Intents.default())
+# Only slash commands and buttons are used, so no message content is needed.
+bot = commands.Bot(command_prefix=commands.when_mentioned, intents=discord.Intents.default())
 
 # Sign-ins in progress: state -> (Discord user id, guild id, PKCE verifier, expiry, the interaction to update).
 pending: dict[str, tuple[int, int, str, float, discord.Interaction]] = {}
@@ -170,7 +174,13 @@ async def setup_verify(interaction: discord.Interaction):
         description="Нажмите на кнопку и войдите на сайте SkyNetwork: бот поставит ник «Имя Фамилия - CID».",
         color=discord.Color.from_rgb(46, 134, 222),
     )
-    await interaction.channel.send(embed=embed, view=VerifyButtonView())
+    try:
+        await interaction.channel.send(embed=embed, view=VerifyButtonView())
+    except discord.Forbidden:
+        # The bot cannot write in this channel itself (no access, or added without the "bot" scope):
+        # the answer to the command is posted instead, the button works the same.
+        await interaction.response.send_message(embed=embed, view=VerifyButtonView())
+        return
     await interaction.response.send_message("Кнопка размещена!", ephemeral=True)
 
 
