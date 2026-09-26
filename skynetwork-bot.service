@@ -1,0 +1,15 @@
+[Unit]
+Description=SkyNetwork Discord bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/skynetwork-bot
+EnvironmentFile=/etc/skynetwork-bot.env
+ExecStart=/opt/skynetwork-bot/venv/bin/python bot.py
+Restart=always
+RestartSec=5
+User=www-data
+
+[Install]
+WantedBy=multi-user.target
