@@ -3,8 +3,6 @@
   <h1>Skynetwork-bot</h1>
   <p>Discord-бот SkyNetwork — верификация участников через SkyNetwork Connect</p>
 
-  [![CI](https://github.com/chatgpt82628163-pixel/Skynetwork-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/chatgpt82628163-pixel/Skynetwork-bot/actions/workflows/ci.yml)
-
   [Сайт](https://sky.network.npzy2.us) · [Поддержка](https://sky.network.npzy2.us/support)
 </div>
 
@@ -14,14 +12,14 @@
 
 Skynetwork-bot связывает аккаунты Discord с аккаунтами SkyNetwork.
 Участник нажимает кнопку в Discord, входит на сайте SkyNetwork своим CID и паролем — пароль до бота не доходит.
-После подтверждения бот устанавливает ник «Имя Фамилия — CID» и, по желанию, выдаёт роль.
+После подтверждения бот устанавливает ник «Имя Фамилия - CID» и, по желанию, выдаёт роль.
 Один CID может быть привязан только к одному Discord-аккаунту.
 
 ## Возможности
 
 **Верификация**
 - Кнопка «Verify» с OAuth 2.0 + PKCE — ссылка одноразовая, действует 10 минут.
-- Ник устанавливается автоматически: «Имя Фамилия — CID» (до 32 символов).
+- Ник устанавливается автоматически: «Имя Фамилия - CID» (до 32 символов).
 - Роль выдаётся сразу после верификации (настраивается через `VERIFIED_ROLE_ID`).
 - Если CID перешёл к другому Discord-аккаунту, у предыдущего ник и роль снимаются.
 
@@ -35,14 +33,6 @@ Skynetwork-bot связывает аккаунты Discord с аккаунтам
 
 **Хранилище**
 - SQLite-база (`links.db`) хранит связи CID ↔ Discord-ID по гильдиям.
-
-## Скриншоты
-
-> Страница сайта — раздел «Кто в эфире»
-
-![Онлайн на карте](https://raw.githubusercontent.com/chatgpt82628163-pixel/Skynetwork-bot/main/docs/logo.png)
-
-<!-- Для скриншотов сайта используйте readme-assets/online.png, home-dark.png и т.д. -->
 
 ## Сборка и запуск
 
@@ -136,7 +126,7 @@ Skynetwork-bot — один из компонентов платформы SkyNe
 
 ## English
 
-**Skynetwork-bot** is the SkyNetwork Discord bot. It links Discord accounts to SkyNetwork accounts via OAuth 2.0 + PKCE: a member clicks **Verify**, signs in on the SkyNetwork website, and the bot sets their nickname to "First Last — CID" and grants the verified role. Passwords never reach the bot. One CID maps to one Discord account per server.
+**Skynetwork-bot** is the SkyNetwork Discord bot. It links Discord accounts to SkyNetwork accounts via OAuth 2.0 + PKCE: a member clicks **Verify**, signs in on the SkyNetwork website, and the bot sets their nickname to "First Last - CID" and grants the verified role. Passwords never reach the bot. One CID maps to one Discord account per server.
 
 **Features:** persistent verify button, `/setup_verify` admin command, small OAuth callback web page served under `/discord/` via nginx, SQLite storage.
 
